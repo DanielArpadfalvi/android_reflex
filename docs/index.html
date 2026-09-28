@@ -45,10 +45,10 @@
   .msg { margin-top: 12px; font-weight: 700; }
   .msg.err { color: var(--bad); } .msg.ok { color: var(--good); }
   .hidden { display: none !important; }
-  .tablewrap { overflow-x: auto; }
-  table { border-collapse: separate; border-spacing: 0 4px; width: 100%; font-size: .95rem; }
-  th { text-align: left; color: var(--muted); font-weight: 700; padding: 4px 8px; white-space: nowrap; }
-  td { padding: 6px 8px; white-space: nowrap; background: #f4f9ff; }
+  table { border-collapse: separate; border-spacing: 0 4px; width: 100%; font-size: .9rem; }
+  th { text-align: left; color: var(--muted); font-weight: 700; padding: 4px 6px; line-height: 1.2; vertical-align: bottom; }
+  td { padding: 6px; background: #f4f9ff; line-height: 1.3; white-space: nowrap; }
+  td:first-child { white-space: normal; }
   td:first-child { border-radius: 10px 0 0 10px; font-weight: 700; }
   td:last-child { border-radius: 0 10px 10px 0; }
   td.good { background: var(--good-bg); color: var(--good); }
@@ -57,6 +57,18 @@
   td small { display: block; font-size: .75rem; opacity: .85; }
   tr.truth td { background: #d6ecff; font-weight: 700; }
   .total { font-size: 1.1rem; font-weight: 700; color: var(--blue-dark); }
+  /* keskeny kijelzőn minden tippelő egy kártya, nincs vízszintes görgetés */
+  @media (max-width: 900px) {
+    table, tbody, tr, td { display: block; width: 100%; }
+    tr:first-child { display: none; }
+    tr { margin-bottom: 12px; border-radius: 14px; overflow: hidden; background: #f4f9ff; }
+    td { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; border-radius: 0 !important; padding: 6px 12px; }
+    td::before { content: attr(data-label); color: var(--muted); font-weight: 700; font-size: .85rem; }
+    td:first-child { font-size: 1.05rem; justify-content: flex-start; }
+    td:first-child::before, td:empty { display: none; }
+    td small { display: inline; margin-left: 6px; }
+    td > span { text-align: right; }
+  }
   .rules { color: var(--muted); font-size: .9rem; }
   .rules li { margin: 2px 0; }
   .foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: .9rem; }
@@ -107,7 +119,7 @@
         <button type="submit">Megnézem a tippeket 👀</button>
         <div id="whoMsg" class="msg err"></div>
       </form>
-      <div class="tablewrap"><table id="board"></table></div>
+      <table id="board"></table>
       <details class="rules"><summary>Pontozás (max. 100 pont)</summary><ul id="rules"></ul></details>
     </div>
 
@@ -289,15 +301,15 @@ function renderBoard() {
   let rows;
   if (result) {
     const r = withDerived(result);
-    const truth = `<tr class="truth"><td>👶 Bence</td><td></td>${FIELDS.map(f => `<td>${esc(show(f, r[f.key]))}</td>`).join("")}</tr>`;
+    const truth = `<tr class="truth"><td>👶 Bence</td><td></td>${FIELDS.map(f => `<td data-label="${f.label}"><span>${esc(show(f, r[f.key]))}</span></td>`).join("")}</tr>`;
     const scored = tips.map(t => ({ name: t.name, ...scoreTip(t.data, result) })).sort((a, b) => b.total - a.total);
     const medal = i => ["🥇 ", "🥈 ", "🥉 "][i] || "";
-    rows = truth + scored.map((s, i) => `<tr><td>${medal(i)}${esc(s.name)}</td><td class="total">${s.total}</td>${s.cells.map(c => {
+    rows = truth + scored.map((s, i) => `<tr><td>${medal(i)}${esc(s.name)}</td><td class="total" data-label="Pont">${s.total}</td>${s.cells.map(c => {
       const cls = c.ratio >= 0.7 ? "good" : c.ratio > 0 ? "mid" : "bad";
-      return `<td class="${cls}">${esc(show(c.f, c.val))}<small>${c.pts} p</small></td>`;
+      return `<td class="${cls}" data-label="${c.f.label}"><span>${esc(show(c.f, c.val))}<small>${c.pts} p</small></span></td>`;
     }).join("")}</tr>`).join("");
   } else {
-    rows = tips.map(t => { const d = withDerived(t.data); return `<tr><td>${esc(t.name)}</td>${FIELDS.map(f => `<td>${esc(show(f, d[f.key]))}</td>`).join("")}</tr>`; }).join("");
+    rows = tips.map(t => { const d = withDerived(t.data); return `<tr><td>${esc(t.name)}</td>${FIELDS.map(f => `<td data-label="${f.label}"><span>${esc(show(f, d[f.key]))}</span></td>`).join("")}</tr>`; }).join("");
   }
   table.innerHTML = head + rows;
 }
