@@ -1,6 +1,6 @@
 # Bence tippjáték 👶
 
-Egyszerű weboldal, ahol a család megtippelheti Bence születési adatait, a születés után pedig pontozott eredménytábla készül.
+Egyszerű weboldal, ahol a család megtippelheti Bence születési adatait, a születés után pedig a tipptábla pontozott eredménytáblává válik.
 
 - `index.html` – maga az oldal (egyetlen fájl, nincs build)
 - `config.js` – Supabase URL + anon kulcs (üresen hagyva demó mód: jelszó `bence`, szülői `admin`)
@@ -12,7 +12,7 @@ Egyszerű weboldal, ahol a család megtippelheti Bence születési adatait, a sz
 3. Publikálás: GitHub Pages (Settings → Pages → branch, `/docs` mappa) vagy Vercel (Root directory: `docs`).
 
 ## Használat
-- Családi jelszóval belépve: név + tippek beküldése, eredménytábla megtekintése.
+- Családi jelszóval belépve: név + tippek beküldése, tipptábla megtekintése.
 - Szülői jelszóval belépve: „Valós adatok” fül – mentés után a tippelés lezárul, a tábla zöld/sárga/piros lesz.
 
 ## Pontozás (max. 100)

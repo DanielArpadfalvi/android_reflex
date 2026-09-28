@@ -83,15 +83,15 @@
   <div id="main" class="hidden">
     <div class="tabs">
       <button data-tab="tip" class="on">✏️ Tippelek</button>
-      <button data-tab="board">🏆 Eredménytábla</button>
+      <button data-tab="board">🏆 Tipptábla</button>
       <button data-tab="admin" class="admin-only hidden">🍼 Valós adatok</button>
     </div>
 
     <div id="tab-tip" class="card">
-      <div id="closedNote" class="hidden"><b>Bence megszületett, a tippelés lezárult! 🎉</b> Nézd meg az eredménytáblát.</div>
+      <div id="closedNote" class="hidden"><b>Bence megszületett, a tippelés lezárult! 🎉</b> Nézd meg a tipptáblát.</div>
       <form id="tipForm">
         <label for="name">A neved</label>
-        <input id="name" required maxlength="60" placeholder="pl. Mari mama">
+        <input id="name" required maxlength="60" placeholder="pl. Évi mama">
         <div class="grid" data-fields></div>
         <button type="submit">Tipp elküldése 💙</button>
         <div id="tipMsg" class="msg"></div>
@@ -112,7 +112,7 @@
     </div>
 
     <div id="tab-admin" class="card hidden">
-      <p class="hint">Itt add meg Bence tényleges adatait. Mentés után a tippelés lezárul és kiszíneződik az eredménytábla.</p>
+      <p class="hint">Itt add meg Bence tényleges adatait. Mentés után a tippelés lezárul és kiszíneződik a tipptábla.</p>
       <form id="resultForm">
         <div class="grid" data-fields></div>
         <button type="submit">Valós adatok mentése</button>
@@ -155,7 +155,7 @@ const FIELDS = [
   { key: "hair_amount", label: "Haj mennyisége", input: "select", options: ["Kopasz", "Pihe-puha, alig", "Közepes", "Dús sörény"], pts: 5,
     rule: "5 pont a pontos találatért, 2 a szomszédos kategóriáért",
     score: (g, r, f) => { const d = Math.abs(f.options.indexOf(g) - f.options.indexOf(r)); return d === 0 ? 1 : d === 1 ? 0.4 : 0; } },
-  { key: "hair_color", label: "Haj színe", input: "select", options: ["Szőke", "Barna", "Fekete", "Vörös"], pts: 5, rule: "5 pont, ha eltalálod",
+  { key: "hair_color", label: "Haj színe", input: "select", options: ["Szőke", "Barna", "Fekete"], pts: 5, rule: "5 pont, ha eltalálod",
     score: (g, r) => g === r ? 1 : 0 },
   { key: "eye_color", label: "Szem színe", input: "select", options: ["Kék", "Szürke", "Zöld", "Barna"], pts: 5, rule: "5 pont, ha eltalálod",
     score: (g, r) => g === r ? 1 : 0 },
@@ -361,7 +361,7 @@ $("#tipForm").addEventListener("submit", async e => {
     TOKEN = await rpc("submit_tip", { pw: PW, tip_name: $("#name").value, tip: readForm(e.target), tok: TOKEN });
     WHO = $("#name").value.trim();
     try { localStorage.setItem("bence-token", TOKEN); localStorage.setItem("bence-name", WHO); } catch {}
-    msg.className = "msg ok"; msg.textContent = "Köszi, a tipped elmentve! 💙 Most már megnézheted a többiek tippjeit az Eredménytáblán.";
+    msg.className = "msg ok"; msg.textContent = "Köszi, a tipped elmentve! 💙 Most már megnézheted a többiek tippjeit a Tipptáblán.";
     await refresh();
   } catch (err) { msg.className = "msg err"; msg.textContent = err.message; }
 });
