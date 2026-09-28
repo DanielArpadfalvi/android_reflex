@@ -57,6 +57,7 @@
   td.bad { background: var(--bad-bg); color: var(--bad); }
   td small { display: block; font-size: .75rem; opacity: .85; }
   tr.truth td { background: #d6ecff; font-weight: 700; }
+  .board-title { margin: 18px 0 4px; color: var(--blue-dark); font-size: 1.2rem; }
   .total { font-size: 1.1rem; font-weight: 700; color: var(--blue-dark); }
   /* keskeny kijelzőn minden tippelő egy kártya, nincs vízszintes görgetés */
   @media (max-width: 900px) {
@@ -111,6 +112,12 @@
       <form id="tipForm">
         <label for="name">A neved</label>
         <input id="name" required maxlength="60" placeholder="pl. Évi mama">
+        <label for="group">Család vagy barát?</label>
+        <select id="group" required>
+          <option value="">– válassz –</option>
+          <option>Család</option>
+          <option>Barát</option>
+        </select>
         <div class="grid" data-fields></div>
         <button type="submit">Tipp elküldése 💙</button>
         <div id="tipMsg" class="msg"></div>
@@ -126,7 +133,7 @@
         <button type="submit">Megnézem a tippeket 👀</button>
         <div id="whoMsg" class="msg err"></div>
       </form>
-      <table id="board"></table>
+      <div id="boards"></div>
       <details class="rules"><summary>Pontozás (max. 100 pont)</summary><ul id="rules"></ul></details>
     </div>
 
@@ -209,19 +216,21 @@ function demoRpc(fn, a) {
       if (!fam && !adm) throw new Error("Hibás jelszó");
       const all = Object.values(st.tips);
       const mine = all.find(t => a.tok && t.token === a.tok) || (a.who ? st.tips[a.who.trim().toLowerCase()] : null);
-      const unlocked = adm || !!mine || !!st.result;
-      return { locked: !unlocked, count: all.length, my_name: mine?.name ?? null,
-               tips: unlocked ? all.map(({ name, data }) => ({ name, data })) : [], result: st.result };
+      const unlocked = adm || !!mine;
+      return { locked: !unlocked, count: all.length, my_name: mine?.name ?? null, my_grp: mine?.grp ?? null,
+               tips: unlocked ? all.filter(t => adm || t.grp === mine.grp).map(({ name, grp, data }) => ({ name, grp, data })) : [],
+               result: st.result };
     }
     case "submit_tip": {
       if (!fam) throw new Error("Hibás jelszó");
+      if (!["Család", "Barát"].includes(a.tip_grp)) throw new Error("Válaszd ki, hogy család vagy barát vagy!");
       if (st.result) throw new Error("Bence már megszületett, a tippelés lezárult");
       const k = a.tip_name.trim().toLowerCase(), ex = st.tips[k];
       if (ex && ex.token !== a.tok) throw new Error("Ezen a néven már van tipp. Ha a tiéd, azt csak abból a böngészőből módosíthatod, ahonnan leadtad. Ha nem a tiéd, válassz másik nevet!");
       const oldKey = Object.keys(st.tips).find(key => a.tok && st.tips[key].token === a.tok);
       if (oldKey && oldKey !== k) delete st.tips[oldKey];
       const token = ex?.token || (oldKey && a.tok) || crypto.randomUUID();
-      st.tips[k] = { name: a.tip_name.trim(), data: a.tip, token }; save(); return token;
+      st.tips[k] = { name: a.tip_name.trim(), grp: a.tip_grp, data: a.tip, token }; save(); return token;
     }
     case "set_result": if (!adm) throw new Error("Hibás szülői jelszó"); st.result = a.res; return save();
   }
@@ -288,23 +297,11 @@ function scoreTip(tip, result) {
 
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
 
-function renderBoard() {
-  const { tips, result } = BOARD;
-  const table = $("#board");
-  $("#closedNote").classList.toggle("hidden", !result);
-  $("#tipForm").classList.toggle("hidden", !!result);
-  if (BOARD.locked) {
-    table.innerHTML = "";
-    $("#boardNote").textContent = `${BOARD.count} tipp érkezett eddig. A többiek tippjeit akkor láthatod, ha leadtad a sajátodat! 🤫`;
-    $("#whoForm").classList.remove("hidden");
-    return;
-  }
-  $("#whoForm").classList.add("hidden");
-  if (!tips.length) { table.innerHTML = ""; $("#boardNote").textContent = "Még senki nem tippelt. Légy te az első! 💙"; return; }
-  $("#boardNote").textContent = result
-    ? "Zöld = telitalálat vagy nagyon közel, sárga = részben, piros = mellé."
-    : `${tips.length} tipp érkezett eddig. Amint Bence megszületik, itt kiderül ki nyert! 🏆`;
+const GROUPS = [["Család", "👨‍👩‍👦 Családi tipptábla"], ["Barát", "🎉 Baráti tipptábla"]];
+
+function tableHtml(tips, result) {
   const head = `<tr><th>Név</th>${result ? "<th>Pont</th>" : ""}${FIELDS.map(f => `<th>${f.label}</th>`).join("")}</tr>`;
+  if (!tips.length) return `<p class="hint">Ebben a csoportban még senki nem tippelt.</p>`;
   let rows;
   if (result) {
     const r = withDerived(result);
@@ -318,14 +315,39 @@ function renderBoard() {
   } else {
     rows = tips.map(t => { const d = withDerived(t.data); return `<tr><td>${esc(t.name)}</td>${FIELDS.map(f => `<td data-label="${f.label}"><span>${esc(show(f, d[f.key]))}</span></td>`).join("")}</tr>`; }).join("");
   }
-  table.innerHTML = head + rows;
+  return `<table>${head + rows}</table>`;
+}
+
+function renderBoard() {
+  const { tips, result } = BOARD;
+  const boards = $("#boards");
+  $("#closedNote").classList.toggle("hidden", !result);
+  $("#tipForm").classList.toggle("hidden", !!result);
+  if (BOARD.locked) {
+    boards.innerHTML = "";
+    $("#boardNote").textContent = result
+      ? "Bence megszületett! 🎉 Az eredményeket a tippelők láthatják: add meg lent a neved, amivel tippeltél."
+      : `${BOARD.count} tipp érkezett eddig. A többiek tippjeit akkor láthatod, ha leadtad a sajátodat! 🤫`;
+    $("#whoForm").classList.remove("hidden");
+    return;
+  }
+  $("#whoForm").classList.add("hidden");
+  $("#boardNote").textContent = result
+    ? "Zöld = telitalálat vagy nagyon közel, sárga = részben, piros = mellé."
+    : "Amint Bence megszületik, itt kiderül ki nyert! 🏆";
+  // a szülő mindkét táblát látja, mindenki más csak a saját csoportjáét (ezt a szerver is így szűri)
+  const shown = IS_ADMIN ? GROUPS : GROUPS.filter(([g]) => g === BOARD.my_grp);
+  boards.innerHTML = shown.map(([g, title]) => {
+    const list = tips.filter(t => t.grp === g);
+    return `<h3 class="board-title">${title} <span class="hint">(${list.length} tipp)</span></h3>${tableHtml(list, result)}`;
+  }).join("");
 }
 
 async function refresh() {
   BOARD = await rpc("get_board", { pw: PW, tok: TOKEN, who: WHO });
   renderBoard();
   const mine = TOKEN && BOARD.my_name && BOARD.tips.find(t => t.name === BOARD.my_name);
-  if (mine && !$("#name").value) { $("#name").value = mine.name; fillForm($("#tipForm"), mine.data); }
+  if (mine && !$("#name").value) { $("#name").value = mine.name; $("#group").value = mine.grp; fillForm($("#tipForm"), mine.data); }
   if (IS_ADMIN && BOARD.result) fillForm($("#resultForm"), BOARD.result);
 }
 
@@ -378,7 +400,7 @@ $("#tipForm").addEventListener("submit", async e => {
   const msg = $("#tipMsg");
   msg.className = "msg"; msg.textContent = "Küldés...";
   try {
-    TOKEN = await rpc("submit_tip", { pw: PW, tip_name: $("#name").value, tip: readForm(e.target), tok: TOKEN });
+    TOKEN = await rpc("submit_tip", { pw: PW, tip_name: $("#name").value, tip: readForm(e.target), tok: TOKEN, tip_grp: $("#group").value });
     WHO = $("#name").value.trim();
     try { localStorage.setItem("bence-token", TOKEN); localStorage.setItem("bence-name", WHO); } catch {}
     msg.className = "msg ok"; msg.textContent = "Köszi, a tipped elmentve! 💙 Most már megnézheted a többiek tippjeit a Tipptáblán.";
