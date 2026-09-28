@@ -18,10 +18,10 @@ Egyszerű weboldal, ahol a család megtippelheti Bence születési adatait, a sz
 ## Pontozás (max. 100)
 | Adat | Pont |
 |---|---|
-| Súly | 25, minden 20 g eltérés −1 (500 g-tól 0) |
+| Súly | 30, minden 20 g eltérés −1,2 (500 g-tól 0) |
 | Hossz | 15, 5 cm eltérésnél 0 |
 | Születés napja | 20, naponta −2 (10 naptól 0) |
 | Időpont | 15, 6 óra eltérésnél 0 |
 | Napszak (az időpontból) | 5 |
 | Haj mennyisége | 5 (szomszédos kategória: 2) |
-| Haj színe / szemszín / kire hasonlít | 5-5 |
+| Haj színe / szemszín | 5-5 |

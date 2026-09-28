@@ -132,7 +132,7 @@ const linear = (diff, zeroAt) => Math.max(0, 1 - diff / zeroAt);
 
 const FIELDS = [
   { key: "weight", label: "Születési súly", hint: "gramm", input: "number", attrs: { min: 1500, max: 6000, step: 10, placeholder: "pl. 3400" },
-    pts: 25, fmt: v => v + " g", rule: "25 pont a pontos súlyért, minden 20 g eltérés −1 pont (500 g-tól 0)",
+    pts: 30, fmt: v => v + " g", rule: "30 pont a pontos súlyért, minden 20 g eltérés −1,2 pont (500 g-tól 0)",
     score: (g, r) => linear(Math.abs(g - r), 500) },
   { key: "body_length", label: "Hossza", hint: "cm", input: "number", attrs: { min: 35, max: 65, step: 0.5, placeholder: "pl. 52" },
     pts: 15, fmt: v => v + " cm", rule: "15 pont a pontos hosszért, 5 cm eltérésnél már 0",
@@ -152,8 +152,6 @@ const FIELDS = [
   { key: "hair_color", label: "Haj színe", input: "select", options: ["Szőke", "Barna", "Fekete", "Vörös"], pts: 5, rule: "5 pont, ha eltalálod",
     score: (g, r) => g === r ? 1 : 0 },
   { key: "eye_color", label: "Szem színe", input: "select", options: ["Kék", "Szürke", "Zöld", "Barna"], pts: 5, rule: "5 pont, ha eltalálod",
-    score: (g, r) => g === r ? 1 : 0 },
-  { key: "looks_like", label: "Kire hasonlít?", input: "select", options: ["Anyára", "Apára", "Fele-fele"], pts: 5, rule: "5 pont, ha eltalálod",
     score: (g, r) => g === r ? 1 : 0 },
 ];
 const show = (f, v) => v == null || v === "" ? "–" : f.fmt ? f.fmt(v) : v;
