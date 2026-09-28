@@ -95,12 +95,18 @@
         <div class="grid" data-fields></div>
         <button type="submit">Tipp elküldése 💙</button>
         <div id="tipMsg" class="msg"></div>
-        <p class="hint">Ugyanazzal a névvel újra beküldve a korábbi tipped felülíródik.</p>
+        <p class="hint">A tippedet később ebből a böngészőből módosíthatod. A többiek tippjei a sajátod leadása után válnak láthatóvá.</p>
       </form>
     </div>
 
     <div id="tab-board" class="card hidden">
       <div id="boardNote" class="hint"></div>
+      <form id="whoForm" class="hidden">
+        <label for="whoName">Már tippeltél (pl. másik eszközről)? Add meg a neved, amivel tippeltél:</label>
+        <input id="whoName" required maxlength="60">
+        <button type="submit">Megnézem a tippeket 👀</button>
+        <div id="whoMsg" class="msg err"></div>
+      </form>
       <div class="tablewrap"><table id="board"></table></div>
       <details class="rules"><summary>Pontozás (max. 100 pont)</summary><ul id="rules"></ul></details>
     </div>
@@ -180,11 +186,24 @@ function demoRpc(fn, a) {
   switch (fn) {
     case "check_password": return fam;
     case "check_admin": return adm;
-    case "get_board": if (!fam && !adm) throw new Error("Hibás jelszó");
-      return { tips: Object.values(st.tips), result: st.result };
-    case "submit_tip": if (!fam) throw new Error("Hibás jelszó");
+    case "get_board": {
+      if (!fam && !adm) throw new Error("Hibás jelszó");
+      const all = Object.values(st.tips);
+      const mine = all.find(t => a.tok && t.token === a.tok) || (a.who ? st.tips[a.who.trim().toLowerCase()] : null);
+      const unlocked = adm || !!mine || !!st.result;
+      return { locked: !unlocked, count: all.length, my_name: mine?.name ?? null,
+               tips: unlocked ? all.map(({ name, data }) => ({ name, data })) : [], result: st.result };
+    }
+    case "submit_tip": {
+      if (!fam) throw new Error("Hibás jelszó");
       if (st.result) throw new Error("Bence már megszületett, a tippelés lezárult");
-      st.tips[a.tip_name.trim().toLowerCase()] = { name: a.tip_name.trim(), data: a.tip }; return save();
+      const k = a.tip_name.trim().toLowerCase(), ex = st.tips[k];
+      if (ex && ex.token !== a.tok) throw new Error("Ezen a néven már van tipp. Ha a tiéd, azt csak abból a böngészőből módosíthatod, ahonnan leadtad. Ha nem a tiéd, válassz másik nevet!");
+      const oldKey = Object.keys(st.tips).find(key => a.tok && st.tips[key].token === a.tok);
+      if (oldKey && oldKey !== k) delete st.tips[oldKey];
+      const token = ex?.token || (oldKey && a.tok) || crypto.randomUUID();
+      st.tips[k] = { name: a.tip_name.trim(), data: a.tip, token }; save(); return token;
+    }
     case "set_result": if (!adm) throw new Error("Hibás szülői jelszó"); st.result = a.res; return save();
   }
 }
@@ -192,6 +211,8 @@ function demoRpc(fn, a) {
 // ---------- UI ----------
 const $ = s => document.querySelector(s);
 let PW = localStorage.getItem("bence-pw") || "";
+let TOKEN = localStorage.getItem("bence-token") || null;
+let WHO = localStorage.getItem("bence-name") || null;
 let IS_ADMIN = false;
 let BOARD = { tips: [], result: null };
 
@@ -253,6 +274,13 @@ function renderBoard() {
   const table = $("#board");
   $("#closedNote").classList.toggle("hidden", !result);
   $("#tipForm").classList.toggle("hidden", !!result);
+  if (BOARD.locked) {
+    table.innerHTML = "";
+    $("#boardNote").textContent = `${BOARD.count} tipp érkezett eddig. A többiek tippjeit akkor láthatod, ha leadtad a sajátodat! 🤫`;
+    $("#whoForm").classList.remove("hidden");
+    return;
+  }
+  $("#whoForm").classList.add("hidden");
   if (!tips.length) { table.innerHTML = ""; $("#boardNote").textContent = "Még senki nem tippelt. Légy te az első! 💙"; return; }
   $("#boardNote").textContent = result
     ? "Zöld = telitalálat vagy nagyon közel, sárga = részben, piros = mellé."
@@ -275,8 +303,10 @@ function renderBoard() {
 }
 
 async function refresh() {
-  BOARD = await rpc("get_board", { pw: PW });
+  BOARD = await rpc("get_board", { pw: PW, tok: TOKEN, who: WHO });
   renderBoard();
+  const mine = TOKEN && BOARD.my_name && BOARD.tips.find(t => t.name === BOARD.my_name);
+  if (mine && !$("#name").value) { $("#name").value = mine.name; fillForm($("#tipForm"), mine.data); }
   if (IS_ADMIN && BOARD.result) fillForm($("#resultForm"), BOARD.result);
 }
 
@@ -297,7 +327,7 @@ async function enter(pw) {
   $("#tipForm button[type=submit]").disabled = !fam;
   $("#who").textContent = IS_ADMIN ? "Szülői mód 🍼" : "";
   await refresh();
-  showTab(BOARD.result ? "board" : IS_ADMIN && !fam ? "admin" : "tip");
+  showTab(BOARD.result || BOARD.my_name ? "board" : IS_ADMIN && !fam ? "admin" : "tip");
   return true;
 }
 
@@ -314,9 +344,13 @@ $("#loginForm").addEventListener("submit", async e => {
   catch (err) { $("#loginMsg").textContent = err.message; }
 });
 
-$("#name").addEventListener("change", () => {
-  const t = BOARD.tips.find(t => t.name.toLowerCase() === $("#name").value.trim().toLowerCase());
-  if (t) fillForm($("#tipForm"), t.data);
+$("#whoForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  WHO = $("#whoName").value.trim();
+  await refresh();
+  if (BOARD.locked) { $("#whoMsg").textContent = "Ezen a néven még nincs tipp. Előbb add le a sajátodat a Tippelek fülön!"; WHO = null; return; }
+  $("#whoMsg").textContent = "";
+  try { localStorage.setItem("bence-name", WHO); } catch {}
 });
 
 $("#tipForm").addEventListener("submit", async e => {
@@ -324,8 +358,10 @@ $("#tipForm").addEventListener("submit", async e => {
   const msg = $("#tipMsg");
   msg.className = "msg"; msg.textContent = "Küldés...";
   try {
-    await rpc("submit_tip", { pw: PW, tip_name: $("#name").value, tip: readForm(e.target) });
-    msg.className = "msg ok"; msg.textContent = "Köszi, a tipped elmentve! 💙";
+    TOKEN = await rpc("submit_tip", { pw: PW, tip_name: $("#name").value, tip: readForm(e.target), tok: TOKEN });
+    WHO = $("#name").value.trim();
+    try { localStorage.setItem("bence-token", TOKEN); localStorage.setItem("bence-name", WHO); } catch {}
+    msg.className = "msg ok"; msg.textContent = "Köszi, a tipped elmentve! 💙 Most már megnézheted a többiek tippjeit az Eredménytáblán.";
     await refresh();
   } catch (err) { msg.className = "msg err"; msg.textContent = err.message; }
 });
