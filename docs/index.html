@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bence tippjáték</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👶</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eaf5ff; --card: #ffffff; --ink: #1d3557; --muted: #5b7290;
+    --blue: #4a90e2; --blue-dark: #2f6fb8; --line: #cfe3f7;
+    --good: #2e9e5b; --good-bg: #dff5e8; --mid: #c98a00; --mid-bg: #fff3d6;
+    --bad: #d64545; --bad-bg: #fde3e3;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: "Baloo 2", system-ui, sans-serif; color: var(--ink);
+    background: var(--bg) radial-gradient(circle at 10% 10%, #d6ecff 0 80px, transparent 81px),
+                radial-gradient(circle at 90% 30%, #d6ecff 0 60px, transparent 61px);
+    min-height: 100vh;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 24px 16px 60px; }
+  h1 { text-align: center; margin: 8px 0 0; font-size: 2.2rem; color: var(--blue-dark); }
+  .sub { text-align: center; color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border-radius: 20px; padding: 20px; box-shadow: 0 6px 20px rgba(74,144,226,.15); margin-bottom: 16px; }
+  label { display: block; font-weight: 700; margin: 12px 0 4px; }
+  .hint { font-weight: 500; color: var(--muted); font-size: .9rem; }
+  input, select {
+    width: 100%; font: inherit; padding: 10px 12px; border: 2px solid var(--line);
+    border-radius: 12px; background: #f8fcff; color: var(--ink);
+  }
+  input:focus, select:focus { outline: none; border-color: var(--blue); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 1.8rem; } }
+  button {
+    font: inherit; font-weight: 700; border: 0; border-radius: 14px; padding: 12px 20px;
+    background: var(--blue); color: #fff; cursor: pointer; margin-top: 18px; width: 100%;
+  }
+  button:hover { background: var(--blue-dark); }
+  button.ghost { background: transparent; color: var(--blue-dark); width: auto; margin: 0; padding: 6px 10px; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tabs button { margin: 0; background: #fff; color: var(--blue-dark); }
+  .tabs button.on { background: var(--blue); color: #fff; }
+  .msg { margin-top: 12px; font-weight: 700; }
+  .msg.err { color: var(--bad); } .msg.ok { color: var(--good); }
+  .hidden { display: none !important; }
+  .tablewrap { overflow-x: auto; }
+  table { border-collapse: separate; border-spacing: 0 4px; width: 100%; font-size: .95rem; }
+  th { text-align: left; color: var(--muted); font-weight: 700; padding: 4px 8px; white-space: nowrap; }
+  td { padding: 6px 8px; white-space: nowrap; background: #f4f9ff; }
+  td:first-child { border-radius: 10px 0 0 10px; font-weight: 700; }
+  td:last-child { border-radius: 0 10px 10px 0; }
+  td.good { background: var(--good-bg); color: var(--good); }
+  td.mid { background: var(--mid-bg); color: var(--mid); }
+  td.bad { background: var(--bad-bg); color: var(--bad); }
+  td small { display: block; font-size: .75rem; opacity: .85; }
+  tr.truth td { background: #d6ecff; font-weight: 700; }
+  .total { font-size: 1.1rem; font-weight: 700; color: var(--blue-dark); }
+  .rules { color: var(--muted); font-size: .9rem; }
+  .rules li { margin: 2px 0; }
+  .foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: .9rem; }
+  .demo { background: var(--mid-bg); color: var(--mid); padding: 8px 12px; border-radius: 12px; margin-bottom: 16px; font-size: .9rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>👶 Tippeld meg Bencét! 🍼</h1>
+  <p class="sub">Mikor érkezik, mekkora lesz, milyen lesz a haja és a szeme?</p>
+  <div id="demo" class="demo hidden">Demó mód: nincs beállítva adatbázis, minden csak ebben a böngészőben tárolódik (jelszó: <b>bence</b>, szülői: <b>admin</b>).</div>
+
+  <!-- Belépés -->
+  <div id="login" class="card">
+    <form id="loginForm">
+      <label for="pw">Jelszó</label>
+      <input id="pw" type="password" autocomplete="current-password" required>
+      <button type="submit">Belépés 🚀</button>
+      <div id="loginMsg" class="msg err"></div>
+    </form>
+  </div>
+
+  <!-- Fő rész -->
+  <div id="main" class="hidden">
+    <div class="tabs">
+      <button data-tab="tip" class="on">✏️ Tippelek</button>
+      <button data-tab="board">🏆 Eredménytábla</button>
+      <button data-tab="admin" class="admin-only hidden">🍼 Valós adatok</button>
+    </div>
+
+    <div id="tab-tip" class="card">
+      <div id="closedNote" class="hidden"><b>Bence megszületett, a tippelés lezárult! 🎉</b> Nézd meg az eredménytáblát.</div>
+      <form id="tipForm">
+        <label for="name">A neved</label>
+        <input id="name" required maxlength="60" placeholder="pl. Mari mama">
+        <div class="grid" data-fields></div>
+        <button type="submit">Tipp elküldése 💙</button>
+        <div id="tipMsg" class="msg"></div>
+        <p class="hint">Ugyanazzal a névvel újra beküldve a korábbi tipped felülíródik.</p>
+      </form>
+    </div>
+
+    <div id="tab-board" class="card hidden">
+      <div id="boardNote" class="hint"></div>
+      <div class="tablewrap"><table id="board"></table></div>
+      <details class="rules"><summary>Pontozás (max. 100 pont)</summary><ul id="rules"></ul></details>
+    </div>
+
+    <div id="tab-admin" class="card hidden">
+      <p class="hint">Itt add meg Bence tényleges adatait. Mentés után a tippelés lezárul és kiszíneződik az eredménytábla.</p>
+      <form id="resultForm">
+        <div class="grid" data-fields></div>
+        <button type="submit">Valós adatok mentése</button>
+        <button type="button" id="clearResult" class="ghost">Valós adatok törlése (tippelés újranyitása)</button>
+        <div id="resultMsg" class="msg"></div>
+      </form>
+    </div>
+
+    <div class="foot"><span id="who"></span><button class="ghost" id="logout">Kilépés</button></div>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script>
+// ---------- Tippelhető adatok és pontozás ----------
+const DAYPARTS = [
+  [0, 3, "Éjjel"], [3, 6, "Hajnal"], [6, 9, "Reggel"], [9, 12, "Délelőtt"],
+  [12, 18, "Délután"], [18, 22, "Este"], [22, 24, "Éjjel"]
+];
+const daypart = t => { if (!t) return ""; const h = +t.split(":")[0]; return DAYPARTS.find(([a, b]) => h >= a && h < b)[2]; };
+const toMin = t => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+const linear = (diff, zeroAt) => Math.max(0, 1 - diff / zeroAt);
+
+const FIELDS = [
+  { key: "weight", label: "Születési súly", hint: "gramm", input: "number", attrs: { min: 1500, max: 6000, step: 10, placeholder: "pl. 3400" },
+    pts: 25, fmt: v => v + " g", rule: "25 pont a pontos súlyért, minden 20 g eltérés −1 pont (500 g-tól 0)",
+    score: (g, r) => linear(Math.abs(g - r), 500) },
+  { key: "body_length", label: "Hossza", hint: "cm", input: "number", attrs: { min: 35, max: 65, step: 0.5, placeholder: "pl. 52" },
+    pts: 15, fmt: v => v + " cm", rule: "15 pont a pontos hosszért, 5 cm eltérésnél már 0",
+    score: (g, r) => linear(Math.abs(g - r), 5) },
+  { key: "date", label: "Születés napja", input: "date", pts: 20, fmt: v => v.replaceAll("-", ". ") + ".",
+    rule: "20 pont a pontos napért, minden nap eltérés −2 pont (10 naptól 0)",
+    score: (g, r) => linear(Math.abs(new Date(g) - new Date(r)) / 864e5, 10) },
+  { key: "time", label: "Születés időpontja", hint: "óra:perc", input: "time", pts: 15, fmt: v => v,
+    rule: "15 pont a pontos időpontért, 6 óra eltérésnél már 0 (éjfélen átfordulva is)",
+    score: (g, r) => { const d = Math.abs(toMin(g) - toMin(r)); return linear(Math.min(d, 1440 - d), 360); } },
+  { key: "daypart", label: "Napszak", derived: true, pts: 5, fmt: v => v,
+    rule: "5 pont, ha a napszak stimmel (az időpontból számolva: hajnal 3–6, reggel 6–9, délelőtt 9–12, délután 12–18, este 18–22, éjjel 22–3)",
+    score: (g, r) => g === r ? 1 : 0 },
+  { key: "hair_amount", label: "Haj mennyisége", input: "select", options: ["Kopasz", "Pihe-puha, alig", "Közepes", "Dús sörény"], pts: 5,
+    rule: "5 pont a pontos találatért, 2 a szomszédos kategóriáért",
+    score: (g, r, f) => { const d = Math.abs(f.options.indexOf(g) - f.options.indexOf(r)); return d === 0 ? 1 : d === 1 ? 0.4 : 0; } },
+  { key: "hair_color", label: "Haj színe", input: "select", options: ["Szőke", "Barna", "Fekete", "Vörös"], pts: 5, rule: "5 pont, ha eltalálod",
+    score: (g, r) => g === r ? 1 : 0 },
+  { key: "eye_color", label: "Szem színe", input: "select", options: ["Kék", "Szürke", "Zöld", "Barna"], pts: 5, rule: "5 pont, ha eltalálod",
+    score: (g, r) => g === r ? 1 : 0 },
+  { key: "looks_like", label: "Kire hasonlít?", input: "select", options: ["Anyára", "Apára", "Fele-fele"], pts: 5, rule: "5 pont, ha eltalálod",
+    score: (g, r) => g === r ? 1 : 0 },
+];
+const show = (f, v) => v == null || v === "" ? "–" : f.fmt ? f.fmt(v) : v;
+
+function withDerived(d) { return { ...d, daypart: daypart(d.time) }; }
+
+// ---------- Háttér (Supabase RPC, vagy demó mód localStorage-ban) ----------
+const CFG = window.BENCE_CONFIG || {};
+const DEMO = !CFG.SUPABASE_URL;
+async function rpc(fn, args) {
+  if (DEMO) return demoRpc(fn, args);
+  const res = await fetch(`${CFG.SUPABASE_URL}/rest/v1/rpc/${fn}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", apikey: CFG.SUPABASE_ANON_KEY, Authorization: `Bearer ${CFG.SUPABASE_ANON_KEY}` },
+    body: JSON.stringify(args)
+  });
+  const text = await res.text();
+  const body = text ? JSON.parse(text) : null;
+  if (!res.ok) throw new Error(body?.message || "Hiba történt");
+  return body;
+}
+function demoRpc(fn, a) {
+  const st = JSON.parse(localStorage.getItem("bence-demo") || '{"tips":{},"result":null}');
+  const save = () => localStorage.setItem("bence-demo", JSON.stringify(st));
+  const fam = a.pw === "bence", adm = a.pw === "admin";
+  switch (fn) {
+    case "check_password": return fam;
+    case "check_admin": return adm;
+    case "get_board": if (!fam && !adm) throw new Error("Hibás jelszó");
+      return { tips: Object.values(st.tips), result: st.result };
+    case "submit_tip": if (!fam) throw new Error("Hibás jelszó");
+      if (st.result) throw new Error("Bence már megszületett, a tippelés lezárult");
+      st.tips[a.tip_name.trim().toLowerCase()] = { name: a.tip_name.trim(), data: a.tip }; return save();
+    case "set_result": if (!adm) throw new Error("Hibás szülői jelszó"); st.result = a.res; return save();
+  }
+}
+
+// ---------- UI ----------
+const $ = s => document.querySelector(s);
+let PW = localStorage.getItem("bence-pw") || "";
+let IS_ADMIN = false;
+let BOARD = { tips: [], result: null };
+
+function buildFields(container, idPrefix) {
+  for (const f of FIELDS.filter(f => !f.derived)) {
+    const wrap = document.createElement("div");
+    const lab = document.createElement("label");
+    lab.htmlFor = idPrefix + f.key;
+    lab.innerHTML = f.label + (f.hint ? ` <span class="hint">(${f.hint})</span>` : "");
+    let el;
+    if (f.input === "select") {
+      el = document.createElement("select");
+      el.innerHTML = `<option value="">– válassz –</option>` + f.options.map(o => `<option>${o}</option>`).join("");
+    } else {
+      el = document.createElement("input");
+      el.type = f.input;
+      Object.assign(el, f.attrs || {});
+    }
+    el.id = idPrefix + f.key; el.name = f.key; el.required = true;
+    wrap.append(lab, el);
+    if (f.key === "time") {
+      const dp = document.createElement("div");
+      dp.className = "hint";
+      el.addEventListener("input", () => dp.textContent = el.value ? "Napszak: " + daypart(el.value) : "");
+      wrap.append(dp);
+    }
+    container.append(wrap);
+  }
+}
+function readForm(form) {
+  const d = {};
+  for (const f of FIELDS.filter(f => !f.derived)) {
+    const v = form.elements[f.key].value;
+    d[f.key] = f.input === "number" ? Number(v) : v;
+  }
+  return d;
+}
+function fillForm(form, d) {
+  for (const f of FIELDS.filter(f => !f.derived)) if (d && d[f.key] != null) form.elements[f.key].value = d[f.key];
+  form.elements.time?.dispatchEvent(new Event("input"));
+}
+
+function scoreTip(tip, result) {
+  const g = withDerived(tip), r = withDerived(result);
+  let total = 0;
+  const cells = FIELDS.map(f => {
+    const ratio = g[f.key] === "" || g[f.key] == null ? 0 : f.score(g[f.key], r[f.key], f);
+    const pts = Math.round(ratio * f.pts * 10) / 10;
+    total += pts;
+    return { f, val: g[f.key], ratio, pts };
+  });
+  return { cells, total: Math.round(total * 10) / 10 };
+}
+
+function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+function renderBoard() {
+  const { tips, result } = BOARD;
+  const table = $("#board");
+  $("#closedNote").classList.toggle("hidden", !result);
+  $("#tipForm").classList.toggle("hidden", !!result);
+  if (!tips.length) { table.innerHTML = ""; $("#boardNote").textContent = "Még senki nem tippelt. Légy te az első! 💙"; return; }
+  $("#boardNote").textContent = result
+    ? "Zöld = telitalálat vagy nagyon közel, sárga = részben, piros = mellé."
+    : `${tips.length} tipp érkezett eddig. Amint Bence megszületik, itt kiderül ki nyert! 🏆`;
+  const head = `<tr><th>Név</th>${result ? "<th>Pont</th>" : ""}${FIELDS.map(f => `<th>${f.label}</th>`).join("")}</tr>`;
+  let rows;
+  if (result) {
+    const r = withDerived(result);
+    const truth = `<tr class="truth"><td>👶 Bence</td><td></td>${FIELDS.map(f => `<td>${esc(show(f, r[f.key]))}</td>`).join("")}</tr>`;
+    const scored = tips.map(t => ({ name: t.name, ...scoreTip(t.data, result) })).sort((a, b) => b.total - a.total);
+    const medal = i => ["🥇 ", "🥈 ", "🥉 "][i] || "";
+    rows = truth + scored.map((s, i) => `<tr><td>${medal(i)}${esc(s.name)}</td><td class="total">${s.total}</td>${s.cells.map(c => {
+      const cls = c.ratio >= 0.7 ? "good" : c.ratio > 0 ? "mid" : "bad";
+      return `<td class="${cls}">${esc(show(c.f, c.val))}<small>${c.pts} p</small></td>`;
+    }).join("")}</tr>`).join("");
+  } else {
+    rows = tips.map(t => { const d = withDerived(t.data); return `<tr><td>${esc(t.name)}</td>${FIELDS.map(f => `<td>${esc(show(f, d[f.key]))}</td>`).join("")}</tr>`; }).join("");
+  }
+  table.innerHTML = head + rows;
+}
+
+async function refresh() {
+  BOARD = await rpc("get_board", { pw: PW });
+  renderBoard();
+  if (IS_ADMIN && BOARD.result) fillForm($("#resultForm"), BOARD.result);
+}
+
+function showTab(name) {
+  document.querySelectorAll(".tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
+  ["tip", "board", "admin"].forEach(t => $("#tab-" + t).classList.toggle("hidden", t !== name));
+  if (name === "board") refresh().catch(() => {});
+}
+
+async function enter(pw) {
+  const [fam, adm] = await Promise.all([rpc("check_password", { pw }), rpc("check_admin", { pw })]);
+  if (!fam && !adm) return false;
+  PW = pw; IS_ADMIN = adm;
+  localStorage.setItem("bence-pw", pw);
+  $("#login").classList.add("hidden");
+  $("#main").classList.remove("hidden");
+  document.querySelectorAll(".admin-only").forEach(e => e.classList.toggle("hidden", !IS_ADMIN));
+  $("#tipForm button[type=submit]").disabled = !fam;
+  $("#who").textContent = IS_ADMIN ? "Szülői mód 🍼" : "";
+  await refresh();
+  showTab(BOARD.result ? "board" : IS_ADMIN && !fam ? "admin" : "tip");
+  return true;
+}
+
+// ---------- Események ----------
+buildFields($("#tipForm [data-fields]"), "t_");
+buildFields($("#resultForm [data-fields]"), "r_");
+$("#rules").innerHTML = FIELDS.map(f => `<li><b>${f.label}:</b> ${f.rule}</li>`).join("");
+if (DEMO) $("#demo").classList.remove("hidden");
+
+$("#loginForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  $("#loginMsg").textContent = "";
+  try { if (!await enter($("#pw").value)) $("#loginMsg").textContent = "Hibás jelszó 🙈"; }
+  catch (err) { $("#loginMsg").textContent = err.message; }
+});
+
+$("#name").addEventListener("change", () => {
+  const t = BOARD.tips.find(t => t.name.toLowerCase() === $("#name").value.trim().toLowerCase());
+  if (t) fillForm($("#tipForm"), t.data);
+});
+
+$("#tipForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const msg = $("#tipMsg");
+  msg.className = "msg"; msg.textContent = "Küldés...";
+  try {
+    await rpc("submit_tip", { pw: PW, tip_name: $("#name").value, tip: readForm(e.target) });
+    msg.className = "msg ok"; msg.textContent = "Köszi, a tipped elmentve! 💙";
+    await refresh();
+  } catch (err) { msg.className = "msg err"; msg.textContent = err.message; }
+});
+
+$("#resultForm").addEventListener("submit", async e => {
+  e.preventDefault();
+  const msg = $("#resultMsg");
+  try {
+    await rpc("set_result", { pw: PW, res: readForm(e.target) });
+    msg.className = "msg ok"; msg.textContent = "Elmentve! 🎉";
+    await refresh(); showTab("board");
+  } catch (err) { msg.className = "msg err"; msg.textContent = err.message; }
+});
+
+$("#clearResult").addEventListener("click", async () => {
+  if (!confirm("Biztosan törlöd a valós adatokat? A tippelés újra megnyílik.")) return;
+  try { await rpc("set_result", { pw: PW, res: null }); $("#resultForm").reset(); await refresh(); $("#resultMsg").textContent = "Törölve."; }
+  catch (err) { $("#resultMsg").className = "msg err"; $("#resultMsg").textContent = err.message; }
+});
+
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
+$("#logout").addEventListener("click", () => { localStorage.removeItem("bence-pw"); location.reload(); });
+
+if (PW) enter(PW).catch(() => {});
+</script>
+</body>
+</html>
