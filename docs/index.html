@@ -32,6 +32,7 @@
   }
   input:focus, select:focus { outline: none; border-color: var(--blue); }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+  #login { max-width: 640px; margin: 0 auto 16px; }
   @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 1.8rem; } }
   button {
     font: inherit; font-weight: 700; border: 0; border-radius: 14px; padding: 12px 20px;
@@ -72,6 +73,10 @@
   .rules { color: var(--muted); font-size: .9rem; }
   .rules li { margin: 2px 0; }
   .foot { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: .9rem; }
+  .hero {
+    display: block; width: 100%; max-width: 640px; aspect-ratio: 3 / 2; object-fit: cover;
+    margin: 0 auto 16px; border-radius: 20px; box-shadow: 0 6px 20px rgba(74,144,226,.15);
+  }
   .demo { background: var(--mid-bg); color: var(--mid); padding: 8px 12px; border-radius: 12px; margin-bottom: 16px; font-size: .9rem; }
 </style>
 </head>
@@ -80,6 +85,8 @@
   <h1>👶 Tippeld meg Bencét! 🍼</h1>
   <p class="sub">Mikor érkezik, mekkora lesz, milyen lesz a haja és a szeme?</p>
   <div id="demo" class="demo hidden">Demó mód: nincs beállítva adatbázis, minden csak ebben a böngészőben tárolódik (jelszó: <b>bence</b>, szülői: <b>admin</b>).</div>
+
+  <img id="hero" class="hero" src="bence.jpg" alt="Bence kötött macis cipői">
 
   <!-- Belépés -->
   <div id="login" class="card">
@@ -334,6 +341,7 @@ async function enter(pw) {
   PW = pw; IS_ADMIN = adm;
   localStorage.setItem("bence-pw", pw);
   $("#login").classList.add("hidden");
+  $("#hero").classList.add("hidden");
   $("#main").classList.remove("hidden");
   document.querySelectorAll(".admin-only").forEach(e => e.classList.toggle("hidden", !IS_ADMIN));
   $("#tipForm button[type=submit]").disabled = !fam;
